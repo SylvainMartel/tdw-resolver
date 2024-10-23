@@ -53,7 +53,10 @@ mod tests {
             parameters: DIDParameters {
                 method: "did:tdw:0.4".to_string(),
                 scid: None,
-                update_keys: None,
+                update_keys: Some(vec!["test-key".to_string()]),
+                portable: Some(false),
+                prerotation: Some(false),
+                next_key_hashes: Some(vec!["test-hash".to_string()]),
                 deactivated: None,
                 ttl: None,
             },
@@ -69,21 +72,26 @@ mod tests {
             },
             proof: vec![create_test_proof()],
             last_version_id: "test-scid".to_string(),
+        }
+    }
 
-
+    fn create_test_parameters() -> DIDParameters {
+        DIDParameters {
+            method: "did:tdw:0.4".to_string(),
+            scid: None,
+            update_keys: Some(vec!["test-key".to_string()]),
+            portable: Some(false),
+            prerotation: Some(false),
+            next_key_hashes: Some(vec!["test-hash".to_string()]),
+            deactivated: None,
+            ttl: None,
         }
     }
 
     #[test]
     fn test_valid_proof() {
         let entry = create_test_entry();
-        let parameters = DIDParameters {
-            method: "did:tdw:0.4".to_string(),
-            scid: None,
-            update_keys: None,
-            deactivated: None,
-            ttl: None,
-        };
+        let parameters = create_test_parameters();
         assert!(verify_proof(&entry, &parameters).is_ok());
     }
 
@@ -91,13 +99,7 @@ mod tests {
     fn test_missing_proof() {
         let mut entry = create_test_entry();
         entry.proof = vec![];
-        let parameters = DIDParameters {
-            method: "did:tdw:0.4".to_string(),
-            scid: None,
-            update_keys: None,
-            deactivated: None,
-            ttl: None,
-        };
+        let parameters = create_test_parameters();
         assert!(matches!(
             verify_proof(&entry, &parameters),
             Err(ResolutionError::InvalidProof)
@@ -108,13 +110,7 @@ mod tests {
     fn test_invalid_proof_fields() {
         let mut entry = create_test_entry();
         entry.proof[0].verification_method = "".to_string();
-        let parameters = DIDParameters {
-            method: "did:tdw:0.4".to_string(),
-            scid: None,
-            update_keys: None,
-            deactivated: None,
-            ttl: None,
-        };
+        let parameters = create_test_parameters();
         assert!(matches!(
             verify_proof(&entry, &parameters),
             Err(ResolutionError::InvalidProof)

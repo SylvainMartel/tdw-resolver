@@ -59,7 +59,10 @@ mod tests {
             parameters: DIDParameters {
                 method: "did:tdw:0.4".to_string(),
                 scid: Some(SCID_PLACEHOLDER.to_string()),
-                update_keys: None,
+                update_keys: Some(vec!["test-key".to_string()]),
+                portable: Some(false),
+                prerotation: Some(false),
+                next_key_hashes: Some(vec!["test-hash".to_string()]),
                 deactivated: None,
                 ttl: None,
             },

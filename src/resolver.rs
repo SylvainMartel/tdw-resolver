@@ -4,6 +4,7 @@
 //! handling the fetching and verification of DID Logs, and the resolution
 //! of DID Documents according to the DID:TDW specification.
 
+use std::collections::HashSet;
 use std::time::Instant;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
@@ -14,7 +15,7 @@ use crate::types::{
     ResolutionResult, ResolutionMetadata, ResolutionOptions
 };
 use crate::did::TdwDid;
-use crate::verification::{verify_entry_hash, verify_scid, verify_proof};
+use crate::verification::{verify_entry_hash, verify_scid, verify_proof, generate_key_hash};
 
 /// Core resolver for DID:TDW resolution
 pub struct Resolver {
@@ -26,6 +27,9 @@ pub struct Resolver {
     processed_documents: Vec<(String, DateTime<Utc>, DIDDocument)>,
     /// Current version number being processed
     current_version: u64,
+    pre_rotation_active: bool,
+    next_key_hashes: HashSet<String>,
+
 }
 
 impl Resolver {
@@ -36,12 +40,17 @@ impl Resolver {
             active_parameters: DIDParameters {
                 method: "did:tdw:0.4".to_string(),
                 scid: None,
+                prerotation: None,
+                next_key_hashes: None,
+                portable: None,
                 update_keys: None,
                 deactivated: None,
                 ttl: None,
             },
             processed_documents: Vec::new(),
             current_version: 0,
+            pre_rotation_active: false,
+            next_key_hashes: HashSet::new(),
         }
     }
 
@@ -123,14 +132,15 @@ impl Resolver {
             .await
             .map_err(ResolutionError::from)?;
 
+        println!("Status: {:?}", response);
         if !response.status().is_success() {
             return Err(ResolutionError::ResolutionFailed(
                 format!("HTTP {} when fetching DID Log", response.status())
             ));
         }
-
+    println!("Response Status: {:?}", response.status());
         let log_content = response.text().await?;
-
+println!("Response Content: {:?}", log_content);
         // Parse each line as a DID Log Entry
         let entries = log_content
             .lines()
@@ -163,6 +173,11 @@ impl Resolver {
             )?;
         }
 
+        // Verify pre-rotation if active
+        if self.pre_rotation_active {
+            self.verify_pre_rotation(entry)?;
+        }
+
         // Verify entry proof
         verify_proof(entry, &self.active_parameters)?;
 
@@ -178,6 +193,26 @@ impl Resolver {
         Ok(())
     }
 
+    fn verify_pre_rotation(&self, entry: &DIDLogEntry) -> Result<(), ResolutionError> {
+        if let Some(update_keys) = &entry.parameters.update_keys {
+            // Skip verification for first entry
+            if self.current_version > 0 {
+                // Verify all update keys have corresponding hashes
+                for key in update_keys {
+                    let key_hash = generate_key_hash(key)?;
+                    if !self.next_key_hashes.contains(&key_hash) {
+                        return Err(ResolutionError::KeyNotPreRotated);
+                    }
+                }
+            }
+
+            // Verify new next_key_hashes is provided
+            if entry.parameters.next_key_hashes.is_none() {
+                return Err(ResolutionError::MissingNextKeyHashes);
+            }
+        }
+        Ok(())
+    }
     fn update_parameters(&mut self, new_params: &DIDParameters) -> Result<(), ResolutionError> {
         // Always update method version
         self.active_parameters.method = new_params.method.clone();
@@ -191,6 +226,31 @@ impl Resolver {
         if let Some(keys) = &new_params.update_keys {
             self.active_parameters.update_keys = Some(keys.clone());
         }
+
+        // Handle pre-rotation parameters
+        if let Some(prerotation) = new_params.prerotation {
+            // Can't disable pre-rotation once enabled
+            if self.pre_rotation_active && !prerotation {
+                return Err(ResolutionError::CannotDeactivatePreRotation);
+            }
+            self.active_parameters.prerotation = Some(prerotation);
+            self.pre_rotation_active = prerotation;
+        }
+
+        if let Some(next_key_hashes) = &new_params.next_key_hashes {
+            self.active_parameters.next_key_hashes = Some(next_key_hashes.clone());
+            self.next_key_hashes = next_key_hashes.iter().cloned().collect();
+        }
+
+        // Handle portable parameter
+        if let Some(portable) = new_params.portable {
+            // Can only set portable in first entry
+            if self.current_version > 0 && self.active_parameters.portable.is_none() {
+                return Err(ResolutionError::CannotEnablePortabilityAfterCreation);
+            }
+            self.active_parameters.portable = Some(portable);
+        }
+
 
         // Update deactivated status if provided
         if let Some(deactivated) = new_params.deactivated {

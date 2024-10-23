@@ -90,12 +90,15 @@ pub struct DIDLogEntry {
     pub version_time: DateTime<Utc>,
 
     /// DID configuration parameters
+    #[serde(rename = "parameters")]
     pub parameters: DIDParameters,
 
     /// The DID Document state for this version
+    #[serde(rename = "state")]
     pub state: DIDDocument,
 
     /// Proofs for this entry
+    #[serde(rename = "proof")]
     pub proof: Vec<Proof>,
 
     /// The predecessor's version_id (SCID for first entry, complete version_id for others)
@@ -110,11 +113,28 @@ pub struct DIDParameters {
     pub method: String,
 
     /// The SCID for the DID
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scid: Option<String>,
 
     /// Update keys (only needed for verification)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub update_keys: Option<Vec<String>>,
+
+    /// Indicates if the DID is portable
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub portable: Option<bool>,
+
+    /// Indicates if pre-rotation is active
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prerotation: Option<bool>,
+
+    /// Next key hashes for pre-rotation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_key_hashes: Option<Vec<String>>,
+
+    /// Witness configuration
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // pub witness: Option<WitnessConfig>,
 
     /// Indicates if the DID is deactivated
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,6 +143,29 @@ pub struct DIDParameters {
     /// Cache time-to-live in seconds
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ttl: Option<u64>,
+}
+
+/// Configuration for witnesses
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WitnessConfig {
+    /// Threshold that must be attained by witness weights
+    pub threshold: u32,
+
+    /// Weight given to the DID Controller's proof
+    pub self_weight: u32,
+
+    /// List of witnesses and their weights
+    pub witnesses: Vec<Witness>,
+}
+
+/// Individual witness configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Witness {
+    /// The DID of the witness
+    pub id: String,
+
+    /// The weight of this witness's approval
+    pub weight: u32,
 }
 
 /// Data Integrity Proof

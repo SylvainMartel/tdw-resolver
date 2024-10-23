@@ -52,6 +52,7 @@ pub fn verify_entry_hash(entry: &DIDLogEntry) -> Result<(), ResolutionError> {
 fn calculate_entry_hash(entry: &DIDLogEntry) -> Result<String, ResolutionError> {
     println!("\nCALCULATE_ENTRY_HASH:");
     println!("Input entry version_id: {}", entry.version_id);
+
     // Create entry copy without proof for hashing
     let entry_for_hash = DIDLogEntry {
         version_id: entry.version_id.clone(),
@@ -92,7 +93,6 @@ mod tests {
     fn create_test_entry(predecessor_version_id: Option<String>) -> DIDLogEntry {
         let scid = "QmfGEUAcMpzo25kF2Rhn8L5FAXysfGnkzjwdKoNPi615XQ";
 
-
         let version_id = predecessor_version_id.clone().unwrap_or_else(|| scid.to_string());
         DIDLogEntry {
             // Use provided predecessor_version_id or SCID
@@ -101,7 +101,10 @@ mod tests {
             parameters: DIDParameters {
                 method: "did:tdw:0.4".to_string(),
                 scid: Some(scid.to_string()),
-                update_keys: None,
+                update_keys: Some(vec!["z6MkhbNRN2Q9BaY9TvTc2K3izkhfVwgHiXL7VWZnTqxEvc3R".to_string()]),
+                portable: Some(false),
+                prerotation: Some(true),
+                next_key_hashes: Some(vec!["QmXC3vvStVVzCBHRHGUsksGxn6BNmkdETXJGDBXwNSTL33".to_string()]),
                 deactivated: None,
                 ttl: None,
             },
@@ -118,7 +121,6 @@ mod tests {
             proof: vec![],
             // Initialize last_version_id with predecessor_version_id or SCID
             last_version_id: version_id,
-
         }
     }
 

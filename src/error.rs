@@ -84,4 +84,19 @@ pub enum ResolutionError {
     /// Multihash error
     #[error("Multihash error: {0}")]
     MultihashError(String),
+
+    #[error("Cannot deactivate pre-rotation once enabled")]
+    CannotDeactivatePreRotation,
+
+    #[error("Cannot enable portability after creation")]
+    CannotEnablePortabilityAfterCreation,
+
+    #[error("Key not pre-rotated")]
+    KeyNotPreRotated,
+
+    #[error("Missing next key hashes")]
+    MissingNextKeyHashes,
+
+    #[error("Insufficient witness proofs")]
+    InsufficientWitnessProofs,
 }
